@@ -1,16 +1,26 @@
+# setup imports for the submodule
 import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "pgoapi"))
 
+# general use
 import logging
 import argparse
 import time
 import json
 from enum import IntEnum
 
+# worker thread
+import threading, Queue
+
+# web server
+from flask import Flask
+
+# pgo api
 from pgoapi import PGoApi
 from pgoapi.utilities import f2i, h2f
 
+# geography
 from google.protobuf.internal import encoder
 from geopy.geocoders import GoogleV3
 from s2sphere import CellId, LatLng
@@ -226,5 +236,15 @@ def generate_spiral(starting_lat, starting_lng, step_size, step_limit):
         m = m + 1
     return coords
 
+@app.route('/api/map_objects')
+def map_objects():
+    return
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve():
+    return render_template('app.html')
+
 if __name__ == '__main__':
     main()
+    app = Flask(__name__)
