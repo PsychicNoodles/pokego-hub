@@ -96,9 +96,10 @@ def init_config():
     parser.add_argument("-l", "--location", help="Location", required=required("location"))
     parser.add_argument("-x", "--proxy", help="HTTP Proxy")
     parser.add_argument("-xs", "--proxy-https", help="HTTPS Proxy")
+    parser.add_argument("-i", "--interval", help="Update Interval")
     parser.add_argument("-d", "--debug", help="Debug Mode", action='store_true')
     parser.add_argument("-t", "--test", help="Only parse the specified location", action='store_true')
-    parser.set_defaults(DEBUG=False, TEST=False)
+    parser.set_defaults(debug=False, test=False, interval=30)
     config = parser.parse_args()
 
     # Passed in arguments shoud trump
@@ -153,10 +154,6 @@ def main():
         log.debug("setting map center")
         map_center = {'lat': position[0], 'lng': position[1]}
 
-        log.debug("getting cell ids")
-        cell_ids = get_cell_ids(position[0], position[1])
-        log.debug("cell ids are: %s" % cell_ids)
-
         log.debug("setting position")
         api.set_position(*position)
 
@@ -175,18 +172,23 @@ def main():
         log.info("failed to login, exiting")
         sys.exit(1)
     else:
-        Thread(target=update_map_objects).start()
+        Thread(target=update_map_objects, args=(config.interval, api)).start()
 
 # If update_all is False, only update and drop stale Pokemon
-def update_map_objects(update_delay, update_all=False):
+def update_map_objects(update_delay, api, update_all=False):
     def should_return(): # check if restart requested and handles starting next run
         if restart_update:
-            Thread(target=update_map_objects, args=(update_delay,),
+            Thread(target=update_map_objects, args=(update_delay, api),
                    kwargs={'update_all': True}).start()
             return True
         else: return False
 
-    response_dict = api.get_map_objects(latitude=f2i(position[0]), longitude=f2i(position[1]),
+    log.debug("getting cell ids")
+    cell_ids = get_cell_ids(map_center['lat'], map_center['lng'])
+    log.debug("cell ids are: %s" % cell_ids)
+
+    response_dict = api.get_map_objects(latitude=f2i(map_center['lat']),
+                                        longitude=f2i(map_center['lng']),
                                         since_timestamp_ms=[0,] * len(cell_ids),
                                         cell_id=cell_ids).call()
 
@@ -261,11 +263,11 @@ def update_map_objects(update_delay, update_all=False):
     map_state['stops'].extend(dedup_by(map_state, stops, ['id']))
     map_state['spawns'].extend(dedup_by(map_state, spawns, ['lat', 'lng']))
 
-    log.debug('New state: {}'.format(update(map_state, results)))
+    log.debug('New state: {}'.format(map_state))
 
     log.debug('scheduling next update in {} secs (at {})'.format(update_delay, now * 1000))
 
-    Timer(update_delay, update_map_objects, args=(update_delay,)).start()
+    Timer(update_delay, update_map_objects, args=(update_delay, api)).start()
 
     # def removeDeci(d):
     #     d.pop('decimated')
