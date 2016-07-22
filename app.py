@@ -7,7 +7,6 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "pgoapi
 import logging
 import argparse
 import time
-import json
 import collections
 import random
 from pprint import pformat
@@ -20,7 +19,7 @@ from threading import Timer, Thread
 from queue import Queue
 
 # web server
-from flask import Flask, request
+from flask import Flask, request, json
 
 # pgo api
 from pgoapi import PGoApi
@@ -265,7 +264,7 @@ def update_map_objects(update_delay, api, update_all=False, coords=None):
                             }
                             if f['type'] is FortType.gym:
                                 f.update({
-                                    'points': fort['gym_points'],
+                                    'points': fort.get('gym_points', 0),
                                     'guard_pokeid': fort['guard_pokemon_id'],
                                     'team': Teams(fort.get('owned_by_team', 0))
                                 })
@@ -315,7 +314,7 @@ def update_map_objects(update_delay, api, update_all=False, coords=None):
     log.debug("atomically replacing state")
     map_state = state
 
-    log.info('Map object update complete, new state:\n\r{}'.format(pformat(map_state)))
+    log.info('Map object update complete')
 
     log.debug('scheduling next update in {} secs (at {})'.format(update_delay, now * 1000))
 
@@ -328,14 +327,13 @@ def update_map_objects(update_delay, api, update_all=False, coords=None):
 
 @app.route('/api/map_objects')
 def map_objects():
-    # TODO: serve this
-    return
+    return json.dumps(map_state)
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
-def serve():
+def serve(path):
     return render_template('app.html')
 
 if __name__ == '__main__':
     main()
-    # app.run()
+    app.run()
