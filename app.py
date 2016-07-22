@@ -13,6 +13,7 @@ import random
 from pprint import pformat
 from functools import partial
 from enum import IntEnum
+from copy import deepcopy
 
 # worker thread
 from threading import Timer, Thread
@@ -204,6 +205,8 @@ def generate_spiral(starting_lat, starting_lng, step_size, step_limit):
 # If update_all is False, only update and drop stale Pokemon
 # coords should be an iterable of dicts with 'lat' and 'lng'
 def update_map_objects(update_delay, api, update_all=False, coords=None):
+    global map_state
+
     def should_return(): # check if restart requested and handles starting next run
         if restart_update:
             Thread(target=update_map_objects, args=(update_delay, api),
@@ -213,6 +216,8 @@ def update_map_objects(update_delay, api, update_all=False, coords=None):
 
     if coords is None:
         coords = generate_spiral(map_center['lat'], map_center['lng'], 0.0015, 49)
+
+    state = deepcopy(map_state) # atomically replaces state at the end of update
 
     for lat, lng in [(d['lat'], d['lng']) for d in coords]:
         log.debug("updating map objects around %s, %s" % (lat, lng))
@@ -289,8 +294,8 @@ def update_map_objects(update_delay, api, update_all=False, coords=None):
 
         # state update
         log.debug('Retrieved Pokemon: {}'.format(pokemen))
-        log.debug('Popped stale Pokemon: {}'.format([map_state['pokemen'].pop(ind) for ind, p
-                                                     in enumerate(map_state['pokemen'])
+        log.debug('Popped stale Pokemon: {}'.format([state['pokemen'].pop(ind) for ind, p
+                                                     in enumerate(state['pokemen'])
                                                      if p['disappears'] < now]))
         log.debug('Retrieved gyms: {}'.format(gyms))
         log.debug('Retrieved Pokestops: {}'.format(stops))
@@ -300,12 +305,15 @@ def update_map_objects(update_delay, api, update_all=False, coords=None):
             old_by_key = [(o[k] for k in keys) for o in old]
             return [n for n in new if not (n[k] for k in keys) in old_by_key]
 
-        map_state['pokemen'].extend(dedup_by(map_state, pokemen, ['id']))
-        map_state['gyms'].extend(dedup_by(map_state, gyms, ['id']))
-        map_state['stops'].extend(dedup_by(map_state, stops, ['id']))
-        map_state['spawns'].extend(dedup_by(map_state, spawns, ['lat', 'lng']))
+        state['pokemen'].extend(dedup_by(state, pokemen, ['id']))
+        state['gyms'].extend(dedup_by(state, gyms, ['id']))
+        state['stops'].extend(dedup_by(state, stops, ['id']))
+        state['spawns'].extend(dedup_by(state, spawns, ['lat', 'lng']))
 
-        log.debug('New state: {}'.format(map_state))
+        log.debug('New state: {}'.format(state))
+
+    log.debug("atomically replacing state")
+    map_state = state
 
     log.info('Map object update complete, new state:\n\r{}'.format(pformat(map_state)))
 
