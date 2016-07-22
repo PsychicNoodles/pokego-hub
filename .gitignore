@@ -91,3 +91,6 @@ ENV3/
 
 # app config json
 config.json
+
+# Mac
+.DS_Store

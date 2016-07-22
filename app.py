@@ -8,13 +8,16 @@ import logging
 import argparse
 import time
 import json
+import collections
+from functools import partial
 from enum import IntEnum
 
 # worker thread
-import threading, Queue
+from threading import Timer, Thread
+from queue import Queue
 
 # web server
-from flask import Flask
+from flask import Flask, request
 
 # pgo api
 from pgoapi import PGoApi
@@ -26,6 +29,12 @@ from geopy.geocoders import GoogleV3
 from s2sphere import CellId, LatLng
 
 log = logging.getLogger(__name__)
+
+app = Flask(__name__)
+map_state = {"pokemen": [], "gyms": [], "stops": [], "spawns": []}
+map_center = {'lat': 0, 'lng': 0} # default center for map
+login = None # partial-ized function to log back in, created in main from config
+restart_update = False # if the update_map_objects function should restart, ie. due to new position
 
 class FortType(IntEnum):
     gym = 0
@@ -103,7 +112,9 @@ def init_config():
     return config
 
 def main():
-    # log format
+    global position, login
+
+    # setup logging
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(module)10s] [%(levelname)5s] %(message)s')
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("pgoapi").setLevel(logging.INFO)
@@ -128,44 +139,69 @@ def main():
     else: proxy = None
     log.debug("proxy is %s" % proxy)
 
-    log.debug("getting location for %s", config.location)
-    position = get_pos_by_name(config.location, proxy)
-    log.debug("location is %f, %f at %f altitude", position[0], position[1], position[2])
-
     log.debug("initializing api")
     api = PGoApi()
 
-    log.debug("setting position")
-    api.set_position(*position)
+    update_position(config.location)
 
-    log.debug("logging in")
-    if not api.login(config.auth_service, config.username, config.password):
+    log.debug("partil-izing login")
+    def base_login(auth, username, password):
+        log.debug("logging in")
+        return api.login(auth, username, password)
+
+    login = partial(base_login, config.auth, config.username, config.password)
+
+    if not login()
         log.info("failed to login, exiting")
-        return
+        sys.exit(1)
+    else:
+        Thread(target=update_map_objects).start()
+
+def update_position(location):
+    global map_center
+
+    log.debug("getting location for %s", config.location)
+    position = get_pos_by_name(config.location, proxy)
+    log.debug("position is %f, %f at %f altitude", position[0], position[1], position[2])
+
+    log.debug("setting map center")
+    map_center = {'lat': position[0], 'lng': position[1]}
 
     log.debug("getting cell ids")
     cell_ids = get_cell_ids(position[0], position[1])
     log.debug("cell ids are: %s" % cell_ids)
 
-    response = api.get_player() \
-                  .get_map_objects(latitude=f2i(position[0]), longitude=f2i(position[1]),
-                                   since_timestamp_ms=[0,] * len(cell_ids),
-                                   cell_id=cell_ids) \
-                  .call()
+    log.debug("setting position")
+    api.set_position(*position)
 
-    pokemen, gyms, stops, spawns = [], [], [], []
-    if 'status' in response['responses']['GET_MAP_OBJECTS'] and \
-    response['responses']['GET_MAP_OBJECTS']['status'] is 1:
-        for cell in response['responses']['GET_MAP_OBJECTS']['map_cells']:
+def update_map_objects():
+    def should_return(): # check if restart requested and handles starting next run
+        if restart_update:
+            Thread(update_map_objects).start()
+            return True
+        else: return False
+
+    response_dict = api.get_map_objects(latitude=f2i(position[0]), longitude=f2i(position[1]),
+                                        since_timestamp_ms=[0,] * len(cell_ids),
+                                        cell_id=cell_ids).call()
+
+    results = {'pokemen': [], 'gyms': [], 'stops': [], 'spawns': []} # new state
+    now = time.time()
+
+    if 'status' in response_dict['responses']['GET_MAP_OBJECTS'] and \
+    response_dict['responses']['GET_MAP_OBJECTS']['status'] is 1:
+        for cell in response_dict['responses']['GET_MAP_OBJECTS']['map_cells']:
+            if should_return(): return
+
             if 'wild_pokemons' in cell:
                 for pokeman in cell['wild_pokemons']:
-                    pokemen.append({
+                    results['pokemen'].append({
                         'id': pokeman['encounter_id'],
                         'spawnpoint': pokeman['spawnpoint_id'],
                         'lat': pokeman['latitude'],
                         'lng': pokeman['longitude'],
                         'pokeid': pokeman['pokemon_data']['pokemon_id'],
-                        'disappears': time.time() + pokeman['time_till_hidden_ms'] / 1000,
+                        'disappears': now + pokeman['time_till_hidden_ms'] / 1000,
                         'last_mod': pokeman['last_modified_timestamp_ms'] # dunno what this does
                     })
             if 'forts' in cell:
@@ -184,27 +220,38 @@ def main():
                             'guard_pokeid': fort['guard_pokemon_id'],
                             'team': Teams(fort.get('owned_by_team', 0))
                         })
-                        gyms.append(f)
+                        results['gyms'].append(f)
                     else:
-                        stops.append(f)
+                        results['stops'].append(f)
             if 'spawn_points' in cell:
                 for spawn in cell['spawn_points']:
-                    spawns.append({
+                    results['spawns'].append({
                         'lat': spawn['latitude'],
                         'lng': spawn['longitude'],
                         'decimated': False
                     })
             if 'decimated_spawn_points' in cell:
                 for spawn in cell['decimated_spawn_points']:
-                    spawns.append({
+                    results['spawns'].append({
                         'lat': spawn['latitude'],
                         'lng': spawn['longitude'],
                         'decimated': True
                     })
-    print('Pokemen: ', pokemen)
-    print('Gyms: ', gyms)
-    print('Stops: ', stops)
-    print('Spawns: ', spawns)
+
+    def update(orig_dict, new_dict):
+        # TODO: update for each thing stored in state
+        return orig_dict
+
+    log.debug('Retrieved Pokemon: {}'.format(results['pokemen']))
+    log.debug('Popped stale Pokemon: {}'.format([pokemen.pop(ind) for ind, p in \
+                                                 map_state['pokemen'] if p['disappears'] < now]))
+    log.debug('Retrieved gyms: {}'.format(results['gyms']))
+    log.debug('Retrieved Pokestops: {}'.format(stops))
+    log.debug('Retrieved spawns (+ decimated): {}'.format(spawns))
+
+    log.debug('New state: {}'.format(update(map_state, results)))
+
+    # TODO: start the next run of this function
 
     # def removeDeci(d):
     #     d.pop('decimated')
@@ -238,6 +285,7 @@ def generate_spiral(starting_lat, starting_lng, step_size, step_limit):
 
 @app.route('/api/map_objects')
 def map_objects():
+    # TODO: serve this
     return
 
 @app.route('/', defaults={'path': ''})
@@ -247,4 +295,4 @@ def serve():
 
 if __name__ == '__main__':
     main()
-    app = Flask(__name__)
+    app.run()
