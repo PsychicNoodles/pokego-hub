@@ -178,7 +178,7 @@ def main():
         except Exception as e:
             log.info('An error occured while logging in')
             log.debug(e)
-        if not loggedIn
+        if not loggedIn:
             log.info('Failed to login')
             if config.retry_login != -1:
                 log.info('Retrying login after %s second', config.retry_login)
