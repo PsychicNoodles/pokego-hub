@@ -171,12 +171,19 @@ def main():
 
     login = partial(base_login, config.auth_service, config.username, config.password)
 
-    while not login():
-        log.info("failed to login")
-        if config.retry_login != -1:
-            log.info("retrying after %s seconds" % config.retry_login)
-            time.sleep(config.retry_login)
-        else: sys.exit(1)
+    loggedIn = False
+    while not loggedIn:
+        try:
+            loggedIn = login()
+        except Exception as e:
+            log.info("An error occured logging in.")
+            log.debug(e)
+        if not loggedIn
+            log.info("failed to login")
+            if config.retry_login != -1:
+                log.info("retrying after %s seconds" % config.retry_login)
+                time.sleep(config.retry_login)
+            else: sys.exit(1)
     else:
         Thread(target=update_map_objects, args=(config.interval, api),
                kwargs={'update_all': True}).start()
