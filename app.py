@@ -50,8 +50,8 @@ class Teams(IntEnum):
     yellow = 3
 
 def get_pos_by_name(location_name, proxy):
-    geolocator = GoogleV3(proxies=proxy, timeout=5)
-    loc = geolocator.geocode(location_name)
+    geolocator = GoogleV3(proxies=proxy, timeout=10)
+    loc = geolocator.geocode(location_name, timeout=5)
 
     log.info('Your given location: %s', loc.address.encode('utf-8'))
     log.info('lat/long/alt: %s %s %s', loc.latitude, loc.longitude, loc.altitude)
