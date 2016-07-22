@@ -34,6 +34,7 @@ app = Flask(__name__)
 map_state = {"pokemen": [], "gyms": [], "stops": [], "spawns": []}
 map_center = {'lat': 0, 'lng': 0} # default center for map
 login = None # partial-ized function to log back in, created in main from config
+update_position = None # partial-ized function to set location, created in main from config
 restart_update = False # if the update_map_objects function should restart, ie. due to new position
 
 class FortType(IntEnum):
@@ -112,7 +113,7 @@ def init_config():
     return config
 
 def main():
-    global position, login
+    global position, login, update_position
 
     # setup logging
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(module)10s] [%(levelname)5s] %(message)s')
@@ -142,6 +143,25 @@ def main():
     log.debug("initializing api")
     api = PGoApi()
 
+    def base_update_position(proxy, api, location):
+        global map_center
+
+        log.debug("getting location for %s", location)
+        position = get_pos_by_name(location, proxy)
+        log.debug("position is %f, %f at %f altitude", position[0], position[1], position[2])
+
+        log.debug("setting map center")
+        map_center = {'lat': position[0], 'lng': position[1]}
+
+        log.debug("getting cell ids")
+        cell_ids = get_cell_ids(position[0], position[1])
+        log.debug("cell ids are: %s" % cell_ids)
+
+        log.debug("setting position")
+        api.set_position(*position)
+
+    update_position = partial(base_update_position, config.proxy, api)
+
     update_position(config.location)
 
     log.debug("partil-izing login")
@@ -149,35 +169,20 @@ def main():
         log.debug("logging in")
         return api.login(auth, username, password)
 
-    login = partial(base_login, config.auth, config.username, config.password)
+    login = partial(base_login, config.auth_service, config.username, config.password)
 
-    if not login()
+    if not login():
         log.info("failed to login, exiting")
         sys.exit(1)
     else:
         Thread(target=update_map_objects).start()
 
-def update_position(location):
-    global map_center
-
-    log.debug("getting location for %s", config.location)
-    position = get_pos_by_name(config.location, proxy)
-    log.debug("position is %f, %f at %f altitude", position[0], position[1], position[2])
-
-    log.debug("setting map center")
-    map_center = {'lat': position[0], 'lng': position[1]}
-
-    log.debug("getting cell ids")
-    cell_ids = get_cell_ids(position[0], position[1])
-    log.debug("cell ids are: %s" % cell_ids)
-
-    log.debug("setting position")
-    api.set_position(*position)
-
-def update_map_objects():
+# If update_all is False, only update and drop stale Pokemon
+def update_map_objects(update_delay, update_all=False):
     def should_return(): # check if restart requested and handles starting next run
         if restart_update:
-            Thread(update_map_objects).start()
+            Thread(target=update_map_objects, args=(update_delay,),
+                   kwargs={'update_all': True}).start()
             return True
         else: return False
 
@@ -185,7 +190,7 @@ def update_map_objects():
                                         since_timestamp_ms=[0,] * len(cell_ids),
                                         cell_id=cell_ids).call()
 
-    results = {'pokemen': [], 'gyms': [], 'stops': [], 'spawns': []} # new state
+    pokemen, gyms, stops, spawns = [], [], [], []
     now = time.time()
 
     if 'status' in response_dict['responses']['GET_MAP_OBJECTS'] and \
@@ -195,7 +200,7 @@ def update_map_objects():
 
             if 'wild_pokemons' in cell:
                 for pokeman in cell['wild_pokemons']:
-                    results['pokemen'].append({
+                    pokemen.append({
                         'id': pokeman['encounter_id'],
                         'spawnpoint': pokeman['spawnpoint_id'],
                         'lat': pokeman['latitude'],
@@ -204,54 +209,63 @@ def update_map_objects():
                         'disappears': now + pokeman['time_till_hidden_ms'] / 1000,
                         'last_mod': pokeman['last_modified_timestamp_ms'] # dunno what this does
                     })
-            if 'forts' in cell:
-                for fort in cell['forts']:
-                    f = {
-                        'id': fort['id'],
-                        'lat': fort['latitude'],
-                        'lng': fort['longitude'],
-                        'type': FortType(fort.get('type', 0)), # gyms are type 0, but aren't listed
-                        'enabled': fort['enabled'], # dunno what this does
-                        'last_mod': fort['last_modified_timestamp_ms'] # dunno what this does
-                    }
-                    if f['type'] is FortType.gym:
-                        f.update({
-                            'points': fort['gym_points'],
-                            'guard_pokeid': fort['guard_pokemon_id'],
-                            'team': Teams(fort.get('owned_by_team', 0))
+            if update_all:
+                if 'forts' in cell:
+                    for fort in cell['forts']:
+                        f = {
+                            'id': fort['id'],
+                            'lat': fort['latitude'],
+                            'lng': fort['longitude'],
+                            'type': FortType(fort.get('type', 0)), # gyms are type 0, but aren't listed
+                            'enabled': fort['enabled'], # dunno what this does
+                            'last_mod': fort['last_modified_timestamp_ms'] # dunno what this does
+                        }
+                        if f['type'] is FortType.gym:
+                            f.update({
+                                'points': fort['gym_points'],
+                                'guard_pokeid': fort['guard_pokemon_id'],
+                                'team': Teams(fort.get('owned_by_team', 0))
+                            })
+                            gyms.append(f)
+                        else:
+                            stops.append(f)
+                if 'spawn_points' in cell:
+                    for spawn in cell['spawn_points']:
+                        spawns.append({
+                            'lat': spawn['latitude'],
+                            'lng': spawn['longitude'],
+                            'decimated': False
                         })
-                        results['gyms'].append(f)
-                    else:
-                        results['stops'].append(f)
-            if 'spawn_points' in cell:
-                for spawn in cell['spawn_points']:
-                    results['spawns'].append({
-                        'lat': spawn['latitude'],
-                        'lng': spawn['longitude'],
-                        'decimated': False
-                    })
-            if 'decimated_spawn_points' in cell:
-                for spawn in cell['decimated_spawn_points']:
-                    results['spawns'].append({
-                        'lat': spawn['latitude'],
-                        'lng': spawn['longitude'],
-                        'decimated': True
-                    })
+                if 'decimated_spawn_points' in cell:
+                    for spawn in cell['decimated_spawn_points']:
+                        spawns.append({
+                            'lat': spawn['latitude'],
+                            'lng': spawn['longitude'],
+                            'decimated': True
+                        })
 
-    def update(orig_dict, new_dict):
-        # TODO: update for each thing stored in state
-        return orig_dict
-
-    log.debug('Retrieved Pokemon: {}'.format(results['pokemen']))
-    log.debug('Popped stale Pokemon: {}'.format([pokemen.pop(ind) for ind, p in \
+    # state update
+    log.debug('Retrieved Pokemon: {}'.format(pokemen))
+    log.debug('Popped stale Pokemon: {}'.format([map_state['pokemen'].pop(ind) for ind, p in
                                                  map_state['pokemen'] if p['disappears'] < now]))
-    log.debug('Retrieved gyms: {}'.format(results['gyms']))
+    log.debug('Retrieved gyms: {}'.format(gyms))
     log.debug('Retrieved Pokestops: {}'.format(stops))
     log.debug('Retrieved spawns (+ decimated): {}'.format(spawns))
 
+    def dedup_by(old, new, keys):
+        old_by_key = [(o[k] for k in keys) for o in old]
+        return [n for n in new if not (n[k] for k in keys) in old_by_key]
+
+    map_state['pokemen'].extend(dedup_by(map_state, pokemen, ['id']))
+    map_state['gyms'].extend(dedup_by(map_state, gyms, ['id']))
+    map_state['stops'].extend(dedup_by(map_state, stops, ['id']))
+    map_state['spawns'].extend(dedup_by(map_state, spawns, ['lat', 'lng']))
+
     log.debug('New state: {}'.format(update(map_state, results)))
 
-    # TODO: start the next run of this function
+    log.debug('scheduling next update in {} secs (at {})'.format(update_delay, now * 1000))
+
+    Timer(update_delay, update_map_objects, args=(update_delay,)).start()
 
     # def removeDeci(d):
     #     d.pop('decimated')
@@ -295,4 +309,4 @@ def serve():
 
 if __name__ == '__main__':
     main()
-    app.run()
+    # app.run()
