@@ -1,7 +1,7 @@
 # setup imports for the submodule
 import os
 import sys
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "pgoapi"))
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pgoapi'))
 
 # general use
 import logging
@@ -81,7 +81,7 @@ def encode(cellid):
 
 def init_config():
     parser = argparse.ArgumentParser()
-    config_file = "config.json"
+    config_file = 'config.json'
 
     # If config file exists, load variables from json
     load   = {}
@@ -91,17 +91,17 @@ def init_config():
 
     # Read passed in Arguments
     required = lambda x: not x in load
-    parser.add_argument("-a", "--auth_service", help="Auth Service ('ptc' or 'google')",
-        required=required("auth_service"))
-    parser.add_argument("-u", "--username", help="Username", required=required("username"))
-    parser.add_argument("-p", "--password", help="Password", required=required("password"))
-    parser.add_argument("-l", "--location", help="Location", required=required("location"))
-    parser.add_argument("-x", "--proxy", help="HTTP Proxy")
-    parser.add_argument("-xs", "--proxy-https", help="HTTPS Proxy")
-    parser.add_argument("-i", "--interval", help="Update Interval (seconds)", type=int)
-    parser.add_argument("-r", "--retry-login", help="Retry Login (seconds)", type=int)
-    parser.add_argument("-d", "--debug", help="Debug Mode", action='store_true')
-    parser.add_argument("-t", "--test", help="Only parse the specified location", action='store_true')
+    parser.add_argument('-a', '--auth_service', help="Auth Service ('ptc' or 'google')",
+        required=required('auth_service'))
+    parser.add_argument('-u', '--username', help='Username', required=required('username'))
+    parser.add_argument('-p', '--password', help='Password', required=required('password'))
+    parser.add_argument('-l', '--location', help='Location', required=required('location'))
+    parser.add_argument('-x', '--proxy', help='HTTP Proxy')
+    parser.add_argument('-xs', '--proxy-https', help='HTTPS Proxy')
+    parser.add_argument('-i', '--interval', help='Update Interval (seconds)', type=int)
+    parser.add_argument('-r', '--retry-login', help='Retry Login (seconds)', type=int)
+    parser.add_argument('-d', '--debug', help='Debug Mode', action='store_true')
+    parser.add_argument('-t', '--test', help='Only parse the specified location', action='store_true')
     parser.set_defaults(debug=False, test=False, interval=30, retry_login=-1)
     config = parser.parse_args()
 
@@ -121,10 +121,10 @@ def main():
 
     # setup logging
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(module)10s] [%(levelname)5s] %(message)s')
-    logging.getLogger("requests").setLevel(logging.WARNING)
-    logging.getLogger("pgoapi").setLevel(logging.INFO)
-    logging.getLogger("rpc_api").setLevel(logging.INFO)
-    logging.getLogger("geopy").setLevel(logging.DEBUG)
+    logging.getLogger('requests').setLevel(logging.WARNING)
+    logging.getLogger('pgoapi').setLevel(logging.INFO)
+    logging.getLogger('rpc_api').setLevel(logging.INFO)
+    logging.getLogger('geopy').setLevel(logging.DEBUG)
 
     # logger and level for app
     log.setLevel(logging.INFO)
@@ -132,41 +132,41 @@ def main():
     config = init_config()
 
     if config.debug:
-        logging.getLogger("requests").setLevel(logging.DEBUG)
-        logging.getLogger("pgoapi").setLevel(logging.DEBUG)
-        logging.getLogger("rpc_api").setLevel(logging.DEBUG)
+        logging.getLogger('requests').setLevel(logging.DEBUG)
+        logging.getLogger('pgoapi').setLevel(logging.DEBUG)
+        logging.getLogger('rpc_api').setLevel(logging.DEBUG)
         log.setLevel(logging.DEBUG)
 
-    log.debug("config: %s" % config)
+    log.debug('Config: %s', config)
 
     if config.proxy: proxy = {'http': config.proxy}
     elif config.proxy_https: proxy = {'https': config.proxy_https}
     else: proxy = None
-    log.debug("proxy is %s" % proxy)
+    log.debug('Proxy is %s', proxy)
 
-    log.debug("initializing api")
+    log.debug('Initializing api')
     api = PGoApi()
 
     def base_update_position(proxy, api, location):
         global map_center
 
-        log.debug("getting location for %s", location)
+        log.debug('Getting location for %s', location)
         position = get_pos_by_name(location, proxy)
-        log.debug("position is %f, %f at %f altitude", position[0], position[1], position[2])
+        log.debug('Position is %f, %f at %f altitude', position[0], position[1], position[2])
 
-        log.debug("setting map center")
+        log.debug('Setting map center to above position')
         map_center = {'lat': position[0], 'lng': position[1]}
 
-        log.debug("setting position")
+        log.debug('Setting api position')
         api.set_position(*position)
 
     update_position = partial(base_update_position, config.proxy, api)
 
     update_position(config.location)
 
-    log.debug("partial-izing login")
+    log.debug('partial-izing login')
     def base_login(auth, username, password):
-        log.debug("logging in")
+        log.debug('Attempting login')
         return api.login(auth, username, password)
 
     login = partial(base_login, config.auth_service, config.username, config.password)
@@ -176,12 +176,12 @@ def main():
         try:
             loggedIn = login()
         except Exception as e:
-            log.info("An error occured logging in.")
+            log.info('An error occured while logging in')
             log.debug(e)
         if not loggedIn
-            log.info("failed to login")
+            log.info('Failed to login')
             if config.retry_login != -1:
-                log.info("retrying after %s seconds" % config.retry_login)
+                log.info('Retrying login after %s second', config.retry_login)
                 time.sleep(config.retry_login)
             else: sys.exit(1)
     else:
@@ -230,11 +230,11 @@ def update_map_objects(update_delay, api, update_all=False, coords=None):
     state = deepcopy(map_state) # atomically replaces state at the end of update
 
     for lat, lng in [(d['lat'], d['lng']) for d in coords]:
-        log.debug("updating map objects around %s, %s" % (lat, lng))
+        log.debug('Updating map objects around %s, %s' % (lat, lng))
 
-        log.debug("getting cell ids")
+        log.debug('Getting cell ids')
         cell_ids = get_cell_ids(map_center['lat'], map_center['lng'])
-        log.debug("cell ids are: %s" % cell_ids)
+        log.debug('Cell ids are: %s' % cell_ids)
 
         response_dict = api.get_map_objects(latitude=f2i(map_center['lat']),
                                             longitude=f2i(map_center['lng']),
@@ -247,12 +247,12 @@ def update_map_objects(update_delay, api, update_all=False, coords=None):
         if 'status' in response_dict['responses']['GET_MAP_OBJECTS'] and \
         response_dict['responses']['GET_MAP_OBJECTS']['status'] is 1:
             for cell in response_dict['responses']['GET_MAP_OBJECTS']['map_cells']:
-                # log.debug("map cell %s" % pformat(cell))
+                # log.debug('Map cell:\n\r%s', pformat(cell))
                 if should_return(): return
 
                 if 'wild_pokemons' in cell:
                     for pokeman in cell['wild_pokemons']:
-                        log.debug("adding pokeman")
+                        log.debug('Found a pokeman')
                         pokemen.append({
                             'id': pokeman['encounter_id'],
                             'spawnpoint': pokeman['spawnpoint_id'],
@@ -279,15 +279,15 @@ def update_map_objects(update_delay, api, update_all=False, coords=None):
                                     'guard_pokeid': fort['guard_pokemon_id'],
                                     'team': Teams(fort.get('owned_by_team', 0))
                                 })
-                                log.debug("adding gym")
+                                log.debug('Found a gym')
                                 gyms.append(f)
                             else:
                                 #lure info
-                                log.debug("adding stop")
+                                log.debug('Found a stop')
                                 stops.append(f)
                     if 'spawn_points' in cell:
                         for spawn in cell['spawn_points']:
-                            log.debug("adding spawn")
+                            log.debug('Found a spawn')
                             spawns.append({
                                 'lat': spawn['latitude'],
                                 'lng': spawn['longitude'],
@@ -295,7 +295,7 @@ def update_map_objects(update_delay, api, update_all=False, coords=None):
                             })
                     if 'decimated_spawn_points' in cell:
                         for spawn in cell['decimated_spawn_points']:
-                            log.debug("adding spawn (decimated)")
+                            log.debug('Found a spawn (decimated)')
                             spawns.append({
                                 'lat': spawn['latitude'],
                                 'lng': spawn['longitude'],
@@ -322,12 +322,12 @@ def update_map_objects(update_delay, api, update_all=False, coords=None):
 
         log.debug('New state: {}'.format(state))
 
-    log.debug("atomically replacing state")
+    log.debug('Atomically replacing state')
     map_state = state
 
     log.info('Map object update complete')
 
-    log.debug('scheduling next update in {} secs (at {})'.format(update_delay, now * 1000))
+    log.info('Scheduling next update in {} secs (at {})'.format(update_delay, now * 1000))
 
     Timer(update_delay, update_map_objects, args=(update_delay, api)).start()
 
