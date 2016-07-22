@@ -98,10 +98,11 @@ def init_config():
     parser.add_argument("-l", "--location", help="Location", required=required("location"))
     parser.add_argument("-x", "--proxy", help="HTTP Proxy")
     parser.add_argument("-xs", "--proxy-https", help="HTTPS Proxy")
-    parser.add_argument("-i", "--interval", help="Update Interval")
+    parser.add_argument("-i", "--interval", help="Update Interval (seconds)", type=int)
+    parser.add_argument("-r", "--retry-login", help="Retry Login (seconds)", type=int)
     parser.add_argument("-d", "--debug", help="Debug Mode", action='store_true')
     parser.add_argument("-t", "--test", help="Only parse the specified location", action='store_true')
-    parser.set_defaults(debug=False, test=False, interval=30)
+    parser.set_defaults(debug=False, test=False, interval=30, retry_login=-1)
     config = parser.parse_args()
 
     # Passed in arguments shoud trump
@@ -163,16 +164,19 @@ def main():
 
     update_position(config.location)
 
-    log.debug("partil-izing login")
+    log.debug("partial-izing login")
     def base_login(auth, username, password):
         log.debug("logging in")
         return api.login(auth, username, password)
 
     login = partial(base_login, config.auth_service, config.username, config.password)
 
-    if not login():
-        log.info("failed to login, exiting")
-        sys.exit(1)
+    while not login():
+        log.info("failed to login")
+        if config.retry_login != -1:
+            log.info("retrying after %s seconds" % config.retry_login)
+            time.sleep(config.retry_login)
+        else: sys.exit(1)
     else:
         Thread(target=update_map_objects, args=(config.interval, api),
                kwargs={'update_all': True}).start()
