@@ -288,13 +288,13 @@ def update_map_objects(update_delay, api, update_all=False, coords=None):
                             })
 
         # state update
-        log.info('Retrieved Pokemon: {}'.format(pokemen))
-        log.info('Popped stale Pokemon: {}'.format([map_state['pokemen'].pop(ind) for ind, p
+        log.debug('Retrieved Pokemon: {}'.format(pokemen))
+        log.debug('Popped stale Pokemon: {}'.format([map_state['pokemen'].pop(ind) for ind, p
                                                      in enumerate(map_state['pokemen'])
                                                      if p['disappears'] < now]))
-        log.info('Retrieved gyms: {}'.format(gyms))
-        log.info('Retrieved Pokestops: {}'.format(stops))
-        log.info('Retrieved spawns (+ decimated): {}'.format(spawns))
+        log.debug('Retrieved gyms: {}'.format(gyms))
+        log.debug('Retrieved Pokestops: {}'.format(stops))
+        log.debug('Retrieved spawns (+ decimated): {}'.format(spawns))
 
         def dedup_by(old, new, keys):
             old_by_key = [(o[k] for k in keys) for o in old]
@@ -305,7 +305,9 @@ def update_map_objects(update_delay, api, update_all=False, coords=None):
         map_state['stops'].extend(dedup_by(map_state, stops, ['id']))
         map_state['spawns'].extend(dedup_by(map_state, spawns, ['lat', 'lng']))
 
-        log.info('New state: {}'.format(map_state))
+        log.debug('New state: {}'.format(map_state))
+
+    log.info('Map object update complete, new state:\n\r{}'.format(pformat(map_state)))
 
     log.debug('scheduling next update in {} secs (at {})'.format(update_delay, now * 1000))
 
