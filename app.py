@@ -19,7 +19,7 @@ from threading import Timer, Thread
 from queue import Queue
 
 # web server
-from flask import Flask, request, json
+from flask import Flask, request, json, render_template
 
 # pgo api
 from pgoapi import PGoApi
