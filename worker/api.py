@@ -84,6 +84,8 @@ def get_map_objects(log, auth, username, password):
     return scan(api, generate_spiral(lat, lng, 0.0015, 49), log)
 
 def scan(api, coords, log):
+    pokemen, gyms, stops, spawns = [], [], [], []
+
     for lat, lng in [(d['lat'], d['lng']) for d in coords]:
         log.debug('Updating map objects around %s, %s' % (lat, lng))
 
@@ -96,7 +98,6 @@ def scan(api, coords, log):
                                             since_timestamp_ms=[0,] * len(cell_ids),
                                             cell_id=cell_ids).call()
 
-        pokemen, gyms, stops, spawns = [], [], [], []
         now = time.time()
 
         if 'status' in response_dict['responses']['GET_MAP_OBJECTS'] and \
