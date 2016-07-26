@@ -4,14 +4,10 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../pgoapi'))
 
 # general use
-import argparse
 import time
-import collections
 import random
-from pprint import pformat
-from functools import partial
+# from pprint import pformat
 from enum import IntEnum
-from copy import deepcopy
 
 # pgo api
 from pgoapi import PGoApi
@@ -20,8 +16,6 @@ from pgoapi.utilities import f2i, h2f
 from models import Teams
 
 # geography
-from google.protobuf.internal import encoder
-from geopy.geocoders import GoogleV3
 from s2sphere import CellId, LatLng
 
 # Grinnell coords
@@ -47,11 +41,6 @@ def get_cell_ids(lat, long, radius = 10):
 
     # Return everything
     return sorted(walk)
-
-def encode(cellid):
-    output = []
-    encoder._VarintEncoder()(output.append, cellid)
-    return ''.join(output)
 
 def generate_spiral(starting_lat, starting_lng, step_size, step_limit):
     coords = [{'lat': starting_lat, 'lng': starting_lng}]
@@ -157,7 +146,7 @@ def scan(api, coords, log):
                                     'lure_active_pokeid': None,
                                     'lure_expires': None
                                 })
-                                
+
                             log.debug('Found a stop: {}'.format(fort))
                             stops.append(f)
                 if 'spawn_points' in cell:
