@@ -16,7 +16,8 @@ dburl = 'postgresql+psycopg2://%s:%s@%s:%s/%s' % (url.username, url.password,
 engine = create_engine(dburl)
 Session.configure(bind=engine)
 
-db_session = Session()
+def create_session():
+    return Session()
 
 def init_db():
     Base.metadata.create_all(engine)

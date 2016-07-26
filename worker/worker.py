@@ -3,7 +3,7 @@ import os
 import logging
 from datetime import datetime
 from models import Pokemon, Pokestop, Gym, Spawn
-from database import init_db, db_session
+from database import init_db, create_session
 from api import get_map_objects
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(module)10s] [%(levelname)5s] %(message)s')
@@ -23,6 +23,7 @@ auth, username, password = os.environ['AUTH'], os.environ['USERNAME'], os.enviro
 
 def run():
     pokemon, gyms, stops, spawns = get_map_objects(log, auth, username, password)
+    db_session = create_session()
     for poke in pokemon:
         p = Pokemon(encounter_id=poke['id'],
                     last_modified=datetime.fromtimestamp(poke['last_mod']),
