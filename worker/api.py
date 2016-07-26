@@ -125,7 +125,7 @@ def scan(api, coords, log):
                             'lng': pokeman['longitude'],
                             'pokeid': pokeman['pokemon_data']['pokemon_id'],
                             'disappears': now + pokeman['time_till_hidden_ms'] / 1000,
-                            'last_mod': pokeman['last_modified_timestamp_ms'] # dunno what this does
+                            'last_mod': pokeman['last_modified_timestamp_ms'] / 1000 # dunno what this does
                         })
                 if 'forts' in cell:
                     for fort in cell['forts']:
@@ -135,7 +135,7 @@ def scan(api, coords, log):
                             'lng': fort['longitude'],
                             'type': FortType(fort.get('type', 0)), # gyms are type 0, but aren't listed
                             'enabled': fort['enabled'], # dunno what this does
-                            'last_mod': fort['last_modified_timestamp_ms'] # dunno what this does
+                            'last_mod': fort['last_modified_timestamp_ms'] / 1000 # dunno what this does
                         }
                         if f['type'] is FortType.gym:
                             f.update({
