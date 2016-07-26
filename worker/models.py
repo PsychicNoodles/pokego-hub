@@ -1,9 +1,8 @@
 import enum
 from sqlalchemy import Column, BigInteger, SmallInteger, Integer, DateTime, \
                        String, Enum, Boolean
-from sqlalchemy.ext.declarative import declarative_base
 from geoalchemy2 import Geometry
-from worker import Base
+from database import Base
 
 class Teams(enum.IntEnum):
     neutral = 0
@@ -41,7 +40,7 @@ class Gym(Fort, Base):
 
     points = Column(Integer)
     guard_poke_id = Column(SmallInteger)
-    team = Column('team', Enum(Teams))
+    team = Column('team', Enum([e.value for e in Teams], name='teams'))
 
 class Pokestop(Fort, Base):
     __tablename__ = 'pokestop'
