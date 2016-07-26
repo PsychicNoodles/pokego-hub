@@ -13,7 +13,7 @@ url = urlparse(os.environ['DATABASE_URL'])
 dburl = 'postgresql+psycopg2://%s:%s@%s:%s/%s' % (url.username, url.password,
                                                   url.hostname, url.port, url.path[1:])
 
-engine = create_engine(dburl, echo=True)
+engine = create_engine(dburl)
 Session.configure(bind=engine)
 
 db_session = Session()
