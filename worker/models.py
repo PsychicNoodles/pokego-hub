@@ -2,6 +2,7 @@ import enum
 from sqlalchemy import Column, SmallInteger, Integer, Float, DateTime, \
                        String, Enum, Boolean
 from database import Base
+from datetime import datetime
 
 class Teams(enum.IntEnum):
     neutral = 0
@@ -9,7 +10,11 @@ class Teams(enum.IntEnum):
     red = 2
     yellow = 3
 
-class Pokemon(Base):
+class TimestampMixin(object):
+    created_at = Column(DateTime, default=datetime.now(), nullable=False)
+    updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now(), nullable=False)
+
+class Pokemon(TimestampMixin, Base):
     __tablename__ = 'pokemon'
 
     id = Column(Integer, primary_key=True)
@@ -27,7 +32,7 @@ class Pokemon(Base):
                     self.encounter_id, self.last_modified.timestamp(), self.lat,
                     self.lng, self.poke_id, self.spawn_id, self.disappears.timestamp())
 
-class Fort(object): # abstract type
+class Fort(TimestampMixin): # abstract type
     id = Column(Integer, primary_key=True)
     fort_id = Column(String)
     last_modified = Column(DateTime)
@@ -56,7 +61,7 @@ class Pokestop(Fort, Base):
                     "enabled='%s')" % (self.fort_id, self.last_modified, self.lat,
                     self.lng, self.enabled)
 
-class Spawn(Base):
+class Spawn(TimestampMixin, Base):
     __tablename__ = 'spawn'
 
     id = Column(Integer, primary_key=True)
