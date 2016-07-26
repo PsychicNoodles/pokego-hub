@@ -6,20 +6,18 @@ from models import Pokemon, Pokestop, Gym, Spawn
 from database import init_db, db_session
 from api import get_map_objects
 
-# from apscheduler.schedulers.blocking import BlockingScheduler
-
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(module)10s] [%(levelname)5s] %(message)s')
-# logging.getLogger('requests').setLevel(logging.WARNING)
-# logging.getLogger('pgoapi').setLevel(logging.INFO)
-# logging.getLogger('rpc_api').setLevel(logging.INFO)
+logging.getLogger('requests').setLevel(logging.WARNING)
+logging.getLogger('pgoapi').setLevel(logging.INFO)
+logging.getLogger('rpc_api').setLevel(logging.INFO)
 
 log = logging.getLogger(__name__)
-# log.setLevel(logging.INFO)
+log.setLevel(logging.INFO)
 
-logging.getLogger('requests').setLevel(logging.DEBUG)
-logging.getLogger('pgoapi').setLevel(logging.DEBUG)
-logging.getLogger('rpc_api').setLevel(logging.DEBUG)
-log.setLevel(logging.DEBUG)
+# logging.getLogger('requests').setLevel(logging.DEBUG)
+# logging.getLogger('pgoapi').setLevel(logging.DEBUG)
+# logging.getLogger('rpc_api').setLevel(logging.DEBUG)
+# log.setLevel(logging.DEBUG)
 
 auth, username, password = os.environ['AUTH'], os.environ['USERNAME'], os.environ['PASSWORD']
 
@@ -48,8 +46,4 @@ def run():
 
 if __name__ == '__main__':
     init_db()
-
-    # scheduler = BlockingScheduler()
-    # scheduler.add_jobstore('sqlalchemy', url=url)
-
     run()
