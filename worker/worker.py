@@ -43,6 +43,9 @@ def run():
         s = Spawn(lat=poke['lat'], lng=poke['lng'], decimated=spawn['decimated'])
         db_session.add(s)
     db_session.commit()
+    log.info('Successfully updated %s Pokemon, %s gyms, %s Pokestops, and %s spawns', % (
+        len(pokemon), len(gyms), len(stops), len(spawns)
+    ))
 
 if __name__ == '__main__':
     init_db()
