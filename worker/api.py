@@ -13,7 +13,7 @@ from enum import IntEnum
 from pgoapi import PGoApi
 from pgoapi.utilities import f2i, h2f
 
-from models import Teams
+from .models import Teams
 
 # geography
 from s2sphere import CellId, LatLng

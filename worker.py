@@ -2,9 +2,9 @@ import psycopg2
 import os
 import logging
 from datetime import datetime
-from models import Pokemon, Pokestop, Gym, Spawn
-from database import init_db, create_session
-from api import get_map_objects
+from worker.models import Pokemon, Pokestop, Gym, Spawn
+from worker.database import init_db, create_session
+from worker.api import get_map_objects
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(module)10s] [%(levelname)5s] %(message)s')
 logging.getLogger('requests').setLevel(logging.WARNING)

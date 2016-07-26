@@ -1,7 +1,7 @@
 import enum
 from sqlalchemy import Column, SmallInteger, Integer, Float, DateTime, \
                        String, Enum, Boolean
-from database import Base
+from .database import Base
 from datetime import datetime
 
 class Teams(enum.IntEnum):
