@@ -147,6 +147,17 @@ def scan(api, coords, log):
                             gyms.append(f)
                         else:
                             #lure info
+                            if 'lure_info' in fort:
+                                f.update({
+                                    'lure_active_pokeid': fort['lure_info']['active_pokemon_id'],
+                                    'lure_expires': fort['lure_info']['lure_expires_timestamp_ms'] / 1000
+                                })
+                            else:
+                                f.update({
+                                    'lure_active_pokeid': None,
+                                    'lure_expires': None
+                                })
+                                
                             log.debug('Found a stop: {}'.format(fort))
                             stops.append(f)
                 if 'spawn_points' in cell:

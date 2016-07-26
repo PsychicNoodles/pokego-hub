@@ -32,15 +32,18 @@ def run():
         db_session.add(p)
     for gym in gyms:
         g = Gym(fort_id=gym['id'], last_modified=datetime.fromtimestamp(gym['last_mod']),
-                lat=poke['lat'], lng=poke['lng'], enabled=gym['enabled'],
+                lat=gym['lat'], lng=gym['lng'], enabled=gym['enabled'],
                 points=gym['points'], guard_poke_id=gym['guard_pokeid'], team=gym['team'].name)
         db_session.add(g)
     for stop in stops:
         s = Pokestop(fort_id=stop['id'], last_modified=datetime.fromtimestamp(stop['last_mod']),
-                     lat=poke['lat'], lng=poke['lng'], enabled=gym['enabled'])
+                     lat=stop['lat'], lng=stop['lng'], enabled=stop['enabled'],
+                     lure_active_poke_id=stop['lure_active_pokeid'],
+                     lure_expires=(datetime.fromtimestamp(stop['lure_expires'])
+                                   if stop['lure_expires'] != None else None))
         db_session.add(s)
     for spawn in spawns:
-        s = Spawn(lat=poke['lat'], lng=poke['lng'], decimated=spawn['decimated'])
+        s = Spawn(lat=spawn['lat'], lng=spawn['lng'], decimated=spawn['decimated'])
         db_session.add(s)
     db_session.commit()
     log.info('Successfully updated %s Pokemon, %s gyms, %s Pokestops, and %s spawns' % (

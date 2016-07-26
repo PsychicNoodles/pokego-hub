@@ -56,6 +56,9 @@ class Gym(Fort, Base):
 class Pokestop(Fort, Base):
     __tablename__ = 'pokestop'
 
+    lure_active_poke_id = Column(SmallInteger)
+    lure_expires = Column(DateTime)
+
     def __repr__(self):
         return "<Gym(ford_id='%s', last_modified='%s', lat='%s', lng='%s', " + \
                     "enabled='%s')" % (self.fort_id, self.last_modified, self.lat,
