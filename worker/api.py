@@ -85,6 +85,7 @@ def get_map_objects(log, auth, username, password):
 
 def scan(api, coords, log):
     pokemen, gyms, stops, spawns = [], [], [], []
+    poke_ids, fort_ids, spawn_coords = [], [], [] # for dedup check
 
     for lat, lng in [(d['lat'], d['lng']) for d in coords]:
         log.debug('Updating map objects around %s, %s' % (lat, lng))
@@ -108,64 +109,80 @@ def scan(api, coords, log):
                 if 'wild_pokemons' in cell:
                     for pokeman in cell['wild_pokemons']:
                         log.debug('Found a pokeman: {}'.format(pokeman))
-                        pokemen.append({
-                            'id': pokeman['encounter_id'],
-                            'spawnpoint': pokeman['spawnpoint_id'],
-                            'lat': pokeman['latitude'],
-                            'lng': pokeman['longitude'],
-                            'pokeid': pokeman['pokemon_data']['pokemon_id'],
-                            'disappears': now + pokeman['time_till_hidden_ms'] / 1000,
-                            'last_mod': pokeman['last_modified_timestamp_ms'] / 1000 # dunno what this does
-                        })
+                        if pokeman['encounter_id'] not in poke_ids:
+                            pokemen.append({
+                                'id': pokeman['encounter_id'],
+                                'spawnpoint': pokeman['spawnpoint_id'],
+                                'lat': pokeman['latitude'],
+                                'lng': pokeman['longitude'],
+                                'pokeid': pokeman['pokemon_data']['pokemon_id'],
+                                'disappears': now + pokeman['time_till_hidden_ms'] / 1000,
+                                'last_mod': pokeman['last_modified_timestamp_ms'] / 1000 # dunno what this does
+                            })
+                            poke_ids.append(pokeman['encounter_id'])
+                        else:
+                            log.debug('Not new, skipping')
                 if 'forts' in cell:
                     for fort in cell['forts']:
-                        f = {
-                            'id': fort['id'],
-                            'lat': fort['latitude'],
-                            'lng': fort['longitude'],
-                            'type': FortType(fort.get('type', 0)), # gyms are type 0, but aren't listed
-                            'enabled': fort['enabled'], # dunno what this does
-                            'last_mod': fort['last_modified_timestamp_ms'] / 1000 # dunno what this does
-                        }
-                        if f['type'] is FortType.gym:
-                            f.update({
-                                'points': fort.get('gym_points', 0),
-                                'guard_pokeid': fort.get('guard_pokemon_id', 0),
-                                'team': Teams(fort.get('owned_by_team', 0))
-                            })
-                            log.debug('Found a gym: {}'.format(fort))
-                            gyms.append(f)
-                        else:
-                            #lure info
-                            if 'lure_info' in fort:
+                        log.debug('Found a fort...')
+                        if fort['id'] not in fort_ids:
+                            f = {
+                                'id': fort['id'],
+                                'lat': fort['latitude'],
+                                'lng': fort['longitude'],
+                                'type': FortType(fort.get('type', 0)), # gyms are type 0, but aren't listed
+                                'enabled': fort['enabled'], # dunno what this does
+                                'last_mod': fort['last_modified_timestamp_ms'] / 1000 # dunno what this does
+                            }
+                            if f['type'] is FortType.gym:
+                                log.debug('Found a gym: {}'.format(fort))
                                 f.update({
-                                    'lure_active_pokeid': fort['lure_info']['active_pokemon_id'],
-                                    'lure_expires': fort['lure_info']['lure_expires_timestamp_ms'] / 1000
+                                    'points': fort.get('gym_points', 0),
+                                    'guard_pokeid': fort.get('guard_pokemon_id', 0),
+                                    'team': Teams(fort.get('owned_by_team', 0))
                                 })
+                                gyms.append(f)
                             else:
-                                f.update({
-                                    'lure_active_pokeid': None,
-                                    'lure_expires': None
-                                })
-
-                            log.debug('Found a stop: {}'.format(fort))
-                            stops.append(f)
+                                log.debug('Found a stop: {}'.format(fort))
+                                #lure info
+                                if 'lure_info' in fort:
+                                    f.update({
+                                        'lure_active_pokeid': fort['lure_info']['active_pokemon_id'],
+                                        'lure_expires': fort['lure_info']['lure_expires_timestamp_ms'] / 1000
+                                    })
+                                else:
+                                    f.update({
+                                        'lure_active_pokeid': None,
+                                        'lure_expires': None
+                                    })
+                                stops.append(f)
+                            fort_ids.append(fort['id'])
+                        else:
+                            log.debug('Not new, skipping')
                 if 'spawn_points' in cell:
                     for spawn in cell['spawn_points']:
-                        log.debug('Found a spawn: {}'.format(spawn))
-                        spawns.append({
-                            'lat': spawn['latitude'],
-                            'lng': spawn['longitude'],
-                            'decimated': False
-                        })
+                        if (spawn['latitude'], spawn['longitude']) not in spawn_coords:
+                            log.debug('Found a spawn: {}'.format(spawn))
+                            spawns.append({
+                                'lat': spawn['latitude'],
+                                'lng': spawn['longitude'],
+                                'decimated': False
+                            })
+                            spawn_coords.append((spawn['latitude'], spawn['longitude']))
+                        else:
+                            log.debug('Not new, skipping')
                 if 'decimated_spawn_points' in cell:
                     for spawn in cell['decimated_spawn_points']:
-                        log.debug('Found a spawn (decimated): {}'.format(spawn))
-                        spawns.append({
-                            'lat': spawn['latitude'],
-                            'lng': spawn['longitude'],
-                            'decimated': True
-                        })
+                        if (spawn['latitude'], spawn['longitude']) not in spawn_coords:
+                            log.debug('Found a spawn (decimated): {}'.format(spawn))
+                            spawns.append({
+                                'lat': spawn['latitude'],
+                                'lng': spawn['longitude'],
+                                'decimated': True
+                            })
+                            spawn_coords.append((spawn['latitude'], spawn['longitude']))
+                        else:
+                            log.debug('Not new, skipping')
 
         log.debug('Retrieved Pokemon: {}'.format(pokemen))
         log.debug('Retrieved gyms: {}'.format(gyms))
