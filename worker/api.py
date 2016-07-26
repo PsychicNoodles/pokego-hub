@@ -140,7 +140,7 @@ def scan(api, coords, log):
                         if f['type'] is FortType.gym:
                             f.update({
                                 'points': fort.get('gym_points', 0),
-                                'guard_pokeid': fort['guard_pokemon_id'],
+                                'guard_pokeid': fort.get('guard_pokemon_id', 0),
                                 'team': Teams(fort.get('owned_by_team', 0))
                             })
                             log.debug('Found a gym: {}'.format(fort))
