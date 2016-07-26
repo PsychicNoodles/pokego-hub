@@ -28,7 +28,7 @@ class Pokemon(TimestampMixin, Base):
 
     def __repr__(self):
         return "<Pokemon(encounter_id='%s', last_modified='%s', lat='%s', " + \
-                    "lng='%s', poke_id='%s', spawn_id='%s', disappears='%s'" % (
+                    "lng='%s', poke_id='%s', spawn_id='%s', disappears='%s')" % (
                     self.encounter_id, self.last_modified.timestamp(), self.lat,
                     self.lng, self.poke_id, self.spawn_id, self.disappears.timestamp())
 
