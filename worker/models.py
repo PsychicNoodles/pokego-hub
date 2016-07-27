@@ -12,7 +12,7 @@ class Teams(enum.IntEnum):
 
 class TimestampMixin(object):
     created_at = Column(DateTime, default=datetime.now(), nullable=False)
-    updated_at = Column(DateTime, default=datetime.now(), onupdate=datetime.now(), nullable=False)
+    last_seen = Column(DateTime, default=datetime.now(), onupdate=datetime.now(), nullable=False)
 
 class Pokemon(TimestampMixin, Base):
     __tablename__ = 'pokemon'
@@ -27,10 +27,11 @@ class Pokemon(TimestampMixin, Base):
     disappears = Column(DateTime)
 
     def __repr__(self):
-        return "<Pokemon(encounter_id='%s', last_modified='%s', lat='%s', " + \
-                    "lng='%s', poke_id='%s', spawn_id='%s', disappears='%s')" % (
-                    self.encounter_id, self.last_modified.timestamp(), self.lat,
-                    self.lng, self.poke_id, self.spawn_id, self.disappears.timestamp())
+        return ("<Pokemon(encounter_id='{}', last_modified='{}', lat='{}', " + \
+                    "lng='{}', poke_id='{}', spawn_id='{}', disappears='{}')").format(
+                        self.encounter_id, self.last_modified.timestamp(), self.lat,
+                        self.lng, self.poke_id, self.spawn_id, self.disappears.timestamp()
+                    )
 
 class Fort(TimestampMixin): # abstract type
     id = Column(Integer, primary_key=True)
@@ -48,10 +49,11 @@ class Gym(Fort, Base):
     team = Column(Enum(*[e.name for e in Teams], name='teams'))
 
     def __repr__(self):
-        return "<Gym(ford_id='%s', last_modified='%s', lat='%s', lng='%s', " + \
-                    "enabled='%s', points='%s', guard_poke_id='%s', team='%s')" % (
-                    self.fort_id, self.last_modified, self.lat, self.lng,
-                    self.enabled, self.points, self.guard_poke_id, self.team)
+        return ("<Gym(ford_id='{}', last_modified='{}', lat='{}', lng='{}', " + \
+                    "enabled='{}', points='{}', guard_poke_id='{}', team='{}')").format(
+                        self.fort_id, self.last_modified, self.lat, self.lng, \
+                        self.enabled, self.points, self.guard_poke_id, self.team
+                    )
 
 class Pokestop(Fort, Base):
     __tablename__ = 'pokestop'
@@ -60,8 +62,8 @@ class Pokestop(Fort, Base):
     lure_expires = Column(DateTime)
 
     def __repr__(self):
-        return "<Gym(ford_id='%s', last_modified='%s', lat='%s', lng='%s', " + \
-                    "enabled='%s')" % (self.fort_id, self.last_modified, self.lat,
+        return ("<Gym(ford_id='{}', last_modified='{}', lat='{}', lng='{}', " + \
+                    "enabled='{}')").format(self.fort_id, self.last_modified, self.lat,
                     self.lng, self.enabled)
 
 class Spawn(TimestampMixin, Base):
@@ -73,5 +75,5 @@ class Spawn(TimestampMixin, Base):
     decimated = Column(Boolean)
 
     def __repr__(self):
-        return "<Spawn(lat='%s', lng='%s', decimated='%s')" % (self.lat, self.lng,
+        return "<Spawn(lat='{}', lng='{}', decimated='{}')".format(self.lat, self.lng,
                     self.decimated)
